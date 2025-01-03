@@ -1,0 +1,48 @@
+import openai
+
+def generate_recommendations(clinical_note, relevant_table_data, api_key):
+    # Set OpenAI API key
+    openai.api_key = api_key
+
+    # Build the prompt to send to GPT
+    prompt = (
+        f"Clinical Note:\n{clinical_note}\n\n"
+        "Relevant Exam Maneuvers:\n"
+    )
+    
+    # Add the exam table data to the prompt
+    for _, row in relevant_table_data.iterrows():
+        prompt += (
+            f"- {row['Finding']} (Sensitivity: {row['Sensitivity']}, Specificity: {row['Specificity']}, "
+            f"LR+: {row['LR+']}, LR-: {row['LR-']}, Context: {row['Context']}):\n"
+        )
+
+    # Ask GPT to determine the top 5 maneuvers based on the clinical note and table data
+    prompt += (
+        "\nBased on the clinical note and the statistics above, select the top 5 physical exam maneuvers "
+        "you would recommend. For each maneuver, provide the following:\n"
+        "1. Name of the maneuver\n"
+        "2. How to perform the maneuver\n"
+        "3. What a positive/negative finding indicates\n"
+        "4. The relevant statistics (Sensitivity, Specificity, LR+, LR-)\n"
+        "Rank them in order of importance."
+    )
+
+    try:
+        # Query OpenAI GPT
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # Use the desired model
+            messages=[
+                {"role": "system", "content": "You are a physician helping prioritize physical exam maneuvers based on clinical data and relevant statistics."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1000,
+            temperature=0.5
+        )
+
+        # Return GPT's response
+        return response['choices'][0]['message']['content']
+
+    except Exception as e:
+        print(f"Error generating recommendations: {e}")
+        return "An error occurred while generating recommendations."
