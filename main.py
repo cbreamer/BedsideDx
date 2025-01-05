@@ -13,23 +13,22 @@ EXAM_TABLE_PATH = "Extracted_phys_exam.csv"
 
 # Function to get relevant conditions
 def get_relevant_conditions(clinical_note, conditions_list):
-     
     prompt = f"""
-You are a physician. Your task is to extract relevant conditions from the provided clinical note.
+    You are a physician. Your task is to extract relevant conditions from the provided clinical note.
 
-**Instructions:**
-1. Return only a comma-separated list of conditions from the list provided below. Do not include any commentary or additional text.
-2. Ensure the conditions are directly relevant to the clinical note.
+    **Instructions:**
+    1. Return only a comma-separated list of conditions from the list provided below. Do not include any commentary or additional text.
+    2. Ensure the conditions are directly relevant to the clinical note.
 
-**Clinical Note:**
-{clinical_note}
+    **Clinical Note:**
+    {clinical_note}
 
-**Conditions List:**
-{', '.join(conditions_list)}
+    **Conditions List:**
+    {', '.join(conditions_list)}
 
-**Output Format:**
-Condition1, Condition2, Condition3
-"""
+    **Output Format:**
+    Condition1, Condition2, Condition3
+    """
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -54,14 +53,14 @@ def generate_sample_note(selected_conditions):
 
     conditions_str = ", ".join(selected_conditions)
     prompt = f"""
-Generate a sample clinical note for a patient with the following symptoms and/or condition(s) in the differential diagnosis: {conditions_str}.
-The note should include:
-1. Chief complaint
-2. History of present illness (HPI)
-3. Relevant past medical history (PMH)
-4. Review of systems (ROS)
-5. Physical exam findings, including vital signs
-6. Lab and imaging findings
+    Generate a sample clinical note for a patient with the following symptoms and/or condition(s) in the differential diagnosis: {conditions_str}.
+    The note should include:
+    1. Chief complaint
+    2. History of present illness (HPI)
+    3. Relevant past medical history (PMH)
+    4. Review of systems (ROS)
+    5. Physical exam findings, including vital signs
+    6. Lab and imaging findings
     """
     try:
         response = client.chat.completions.create(
@@ -75,14 +74,11 @@ The note should include:
             stream=True
         )
         result = ""
-        placeholder = st.empty()  # Placeholder for streaming output
         for chunk in response:
-            # Accessing content directly from the chunk
-            delta = chunk.choices[0].delta  # Access the delta attribute
-            content = getattr(delta, "content", "")  # Extract content safely
+            delta = chunk.choices[0].delta
+            content = getattr(delta, "content", "")
             if content:
                 result += content
-                placeholder.markdown(result)  # Stream updates to the UI
         return result
     except Exception as e:
         return f"Error generating sample note: {e}"
@@ -95,7 +91,7 @@ def load_exam_table():
         st.error(f"Error loading table: {e}")
         return pd.DataFrame()
 
-# Function to generate recommendations
+# Function to generate recommendations with dynamic streaming
 def generate_recommendations(relevant_conditions, filtered_table=None):
     table_str = ""
     if filtered_table is not None and not filtered_table.empty:
@@ -113,16 +109,14 @@ def generate_recommendations(relevant_conditions, filtered_table=None):
     else:
         table_str = "No relevant exam maneuvers found."
 
-    # Prompt for GPT
     prompt = f"""
-Using the following information, identify and prioritize the most relevant specialized physical exam maneuvers for the patient. Provide step-by-step instructions, positive/negative findings, relevant statistics (sensitivity, specificity, LR+/-), and clinical implications.
+    Using the following information, identify and prioritize the most relevant specialized physical exam maneuvers for the patient. Provide step-by-step instructions, positive/negative findings, relevant statistics (sensitivity, specificity, LR+/-), and clinical implications.
 
-**Conditions:**  
-{', '.join(relevant_conditions)}
+    **Conditions:**  
+    {', '.join(relevant_conditions)}
 
-**Exam Table:**  
-{table_str}
-
+    **Exam Table:**  
+    {table_str}
     """
     try:
         response = client.chat.completions.create(
@@ -131,31 +125,28 @@ Using the following information, identify and prioritize the most relevant speci
                 {"role": "system", "content": "You are a teaching physician recommending the top exam maneuvers based on the provided information."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=1000,
+            max_tokens=3000,
             temperature=0.5,
             stream=True
         )
-         # Streaming response with titles for each section
-        placeholder = st.empty()  # Placeholder for the entire section
-        result = ""  # Accumulate result
+        placeholder = st.empty()  # Placeholder for dynamic updates
+        result = ""
         for chunk in response:
             delta = chunk.choices[0].delta
             content = getattr(delta, "content", "")
             if content:
                 result += content
-                placeholder.markdown(result)  # Update the section dynamically
+                placeholder.markdown(result)  # Dynamically update the content
         result += "\n\n---\n**Citation:** McGee S. Evidence-Based Physical Diagnosis. Elsevier - Health Science; 2021."
-        placeholder.markdown(result)  # Display the final recommendations with citation
+        placeholder.markdown(result)  # Final update with the citation
         return result
     except Exception as e:
         st.error(f"Error generating recommendations from GPT: {e}")
         return "An error occurred while generating recommendations."
 
-
 # Streamlit App
 st.title("Enhanced Bedside Physical Exam")
 
-# Explanation inside a built-in Streamlit info box
 st.info(
     """
     This is an educational app that will take a clinical note and recommend specialized physical exam tests to perform based on the clinical situation.  
@@ -163,10 +154,6 @@ st.info(
     """,
     icon="ℹ️"
 )
-
-
-
-
 
 # Sidebar for generating sample clinical notes
 st.sidebar.title("Generate Sample Clinical Note")
@@ -177,26 +164,27 @@ condition_options = [
 ]
 selected_conditions = st.sidebar.multiselect("Select condition(s):", condition_options)
 
+# Spinner in the main area, but output in the sidebar
 if st.sidebar.button("Generate Sample Note"):
     with st.spinner("Generating sample clinical note..."):
         sample_note = generate_sample_note(selected_conditions)
     st.sidebar.markdown("### Sample Clinical Note")
     st.sidebar.text_area("Generated Note:", value=sample_note, height=300)
 
-# Main area for diagnosis and recommendations
+# Main area for clinical notes and recommendations
 clinical_note = st.text_area("Enter the clinical note here:", placeholder="Type or paste your clinical note...")
 
 if st.button("Recommend physical exam maneuvers"):
     if clinical_note.strip():
         with st.spinner("Retrieving relevant findings..."):
             try:
-                # Independent conditions list for recommendations
-                conditions_list = ["aortic stenosis", "anemia", "aortic regurgitation", 
-                                   "musculoskeletal-shoulder", "musculoskeletal-knee", 
-                                   "musculoskeletal-hand", "musculoskeletal-hip", 
-                                   "pneumonia", "copd"]
+                conditions_list = [
+                    "aortic stenosis", "anemia", "aortic regurgitation", 
+                    "musculoskeletal-shoulder", "musculoskeletal-knee", 
+                    "musculoskeletal-hand", "musculoskeletal-hip", 
+                    "pneumonia", "copd"
+                ]
                 relevant_conditions = get_relevant_conditions(clinical_note, conditions_list)
-                print(relevant_conditions)
 
                 if not relevant_conditions:
                     st.warning("No relevant conditions identified. Please refine your clinical note.")
@@ -222,9 +210,7 @@ if st.button("Recommend physical exam maneuvers"):
                 st.markdown(f"## {condition.title()}")  # Add a title for the condition
                 condition_filtered_table = filtered_table[filtered_table['Condition'] == condition]
 
-                # Streaming placeholder for each condition
-                placeholder = st.empty()
-                recommendations = generate_recommendations([condition], condition_filtered_table)
-                placeholder.markdown(recommendations)
+                # Stream recommendations dynamically
+                generate_recommendations([condition], condition_filtered_table)
     else:
         st.warning("Please enter a clinical note.")
