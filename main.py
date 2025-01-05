@@ -71,9 +71,19 @@ The note should include:
                 {"role": "user", "content": prompt}
             ],
             max_tokens=800,
-            temperature=0.7
+            temperature=0.7,
+            stream=True
         )
-        return response.choices[0].message.content
+        result = ""
+        placeholder = st.empty()  # Placeholder for streaming output
+        for chunk in response:
+            # Accessing content directly from the chunk
+            delta = chunk.choices[0].delta  # Access the delta attribute
+            content = getattr(delta, "content", "")  # Extract content safely
+            if content:
+                result += content
+                placeholder.markdown(result)  # Stream updates to the UI
+        return result
     except Exception as e:
         return f"Error generating sample note: {e}"
 
@@ -86,7 +96,7 @@ def load_exam_table():
         return pd.DataFrame()
 
 # Function to generate recommendations
-def generate_recommendations(clinical_note, relevant_conditions, filtered_table=None, extracted_text=None):
+def generate_recommendations(relevant_conditions, filtered_table=None):
     table_str = ""
     if filtered_table is not None and not filtered_table.empty:
         for _, row in filtered_table.iterrows():
@@ -113,8 +123,6 @@ Using the following information, identify and prioritize the most relevant speci
 **Exam Table:**  
 {table_str}
 
-**Extracted Text:**  
-{extracted_text if extracted_text else "No additional extracted text provided."}
     """
     try:
         response = client.chat.completions.create(
@@ -124,15 +132,41 @@ Using the following information, identify and prioritize the most relevant speci
                 {"role": "user", "content": prompt}
             ],
             max_tokens=1000,
-            temperature=0.5
+            temperature=0.5,
+            stream=True
         )
-        return response.choices[0].message.content
+         # Streaming response with titles for each section
+        placeholder = st.empty()  # Placeholder for the entire section
+        result = ""  # Accumulate result
+        for chunk in response:
+            delta = chunk.choices[0].delta
+            content = getattr(delta, "content", "")
+            if content:
+                result += content
+                placeholder.markdown(result)  # Update the section dynamically
+        result += "\n\n---\n**Citation:** McGee S. Evidence-Based Physical Diagnosis. Elsevier - Health Science; 2021."
+        placeholder.markdown(result)  # Display the final recommendations with citation
+        return result
     except Exception as e:
         st.error(f"Error generating recommendations from GPT: {e}")
-        return ""
+        return "An error occurred while generating recommendations."
+
 
 # Streamlit App
-st.title("Enhanced Bedside Diagnosis Recommender")
+st.title("Enhanced Bedside Physical Exam")
+
+# Explanation inside a built-in Streamlit info box
+st.info(
+    """
+    This is an educational app that will take a clinical note and recommend specialized physical exam tests to perform based on the clinical situation.  
+    **Do not include any PHI!**
+    """,
+    icon="ℹ️"
+)
+
+
+
+
 
 # Sidebar for generating sample clinical notes
 st.sidebar.title("Generate Sample Clinical Note")
@@ -152,7 +186,7 @@ if st.sidebar.button("Generate Sample Note"):
 # Main area for diagnosis and recommendations
 clinical_note = st.text_area("Enter the clinical note here:", placeholder="Type or paste your clinical note...")
 
-if st.button("Recommend Maneuvers"):
+if st.button("Recommend physical exam maneuvers"):
     if clinical_note.strip():
         with st.spinner("Retrieving relevant findings..."):
             try:
@@ -185,11 +219,12 @@ if st.button("Recommend Maneuvers"):
         if recommendations_generated:
             st.subheader("Recommended Physical Exam Maneuvers by Condition")
             for condition in relevant_conditions:
+                st.markdown(f"## {condition.title()}")  # Add a title for the condition
                 condition_filtered_table = filtered_table[filtered_table['Condition'] == condition]
-                recommendations = generate_recommendations(
-                    clinical_note, [condition], condition_filtered_table, extracted_text=None
-                )
-                with st.expander(f"Physical Exam Maneuvers for {condition.title()}"):
-                    st.markdown(recommendations)
+
+                # Streaming placeholder for each condition
+                placeholder = st.empty()
+                recommendations = generate_recommendations([condition], condition_filtered_table)
+                placeholder.markdown(recommendations)
     else:
         st.warning("Please enter a clinical note.")
