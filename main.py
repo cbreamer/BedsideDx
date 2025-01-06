@@ -31,7 +31,7 @@ def get_relevant_conditions(clinical_note, conditions_list):
     """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a physician extracting relevant conditions from a clinical note."},
                 {"role": "user", "content": prompt}
@@ -64,7 +64,7 @@ def generate_sample_note(selected_conditions):
     """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a physician creating sample clinical notes."},
                 {"role": "user", "content": prompt}
@@ -120,7 +120,7 @@ def generate_recommendations(relevant_conditions, filtered_table=None):
     """
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a teaching physician recommending the top exam maneuvers based on the provided information."},
                 {"role": "user", "content": prompt}
