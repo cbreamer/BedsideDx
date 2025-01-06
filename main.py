@@ -160,7 +160,7 @@ st.sidebar.title("Generate Sample Clinical Note")
 condition_options = [
     "Aortic stenosis", "Anemia", "Aortic regurgitation", 
     "Shoulder pain", "Knee pain", 
-    "Hand pain", "Hip pain", "Pneumonia", "COPD", "Shortness of breath", "Chest pain", "Jaundice"
+    "Hand pain", "Hip pain", "Pneumonia", "COPD", "Shortness of breath", "Chest pain"
 ]
 selected_conditions = st.sidebar.multiselect("Select condition(s):", condition_options)
 
