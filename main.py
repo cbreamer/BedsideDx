@@ -155,6 +155,13 @@ st.info(
     icon="ℹ️"
 )
 
+st.warning(
+    """
+    **Disclaimer:** This tool is a prototype and currently only suggests physical exam maneuvers for a limited number of conditions. 
+    It should be used for educational purposes only and not as a clinical decision-making tool.
+    """,
+    icon="⚠️"
+)
 # Sidebar for generating sample clinical notes
 st.sidebar.title("Generate Sample Clinical Note")
 condition_options = [
