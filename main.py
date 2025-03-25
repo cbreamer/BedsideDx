@@ -1,9 +1,12 @@
 import streamlit as st
 from openai import OpenAI
 import pandas as pd
+import json 
 
 stored_password = st.secrets["passwords"]["app_password"]
-
+#using tools with large language model. Come up with post-test probability for combining these findings and use calculator (include in prompt)
+#openapi- defined tool as calculator, explain how to use calculator. make funciton in python of formula. calculation being performed by tool
+#look at openapi tools
 
 # Initialize session state for password check
 if "authenticated" not in st.session_state:
@@ -24,8 +27,7 @@ if not st.session_state.authenticated:
         key="password_input", 
         on_change=check_password
     )
-else:
-        
+else: 
     # Load the API key from Streamlit secrets
     api_key = st.secrets["openai"]["api_key"]
 
@@ -33,12 +35,16 @@ else:
     client = OpenAI(api_key=api_key)
 
     # Path to physical exam CSV file
-    EXAM_TABLE_PATH = "Extracted_phys_exam.csv"
+    EXAM_TABLE_PATH = "Extracted_phys_exam-updated.csv"
+    
+    for key in ["user_findings", "relevant_conditions", "filtered_table"]:
+        if key not in st.session_state:
+            st.session_state[key] = None
 
     # Function to get relevant conditions
     def get_relevant_conditions(clinical_note, conditions_list):
         prompt = f"""
-        You are a physician. Your task is to extract relevant conditions from the provided clinical note.
+        You are a teaching physician. Your task is to extract relevant conditions from the provided clinical note.
 
         **Instructions:**
         1. Return only a comma-separated list of conditions from the list provided below. Do not include any commentary or additional text.
@@ -134,41 +140,55 @@ else:
             table_str = "No relevant exam maneuvers found."
 
         prompt = f"""
-        Using the following information, identify and prioritize the most relevant specialized physical exam maneuvers for the patient. Provide step-by-step instructions, positive/negative findings, relevant statistics (sensitivity, specificity, LR+/-), and clinical implications.
+            You are a clinician reviewing a list of physical exam maneuvers relevant to the following condition(s): {', '.join(relevant_conditions)}.
 
-        **Conditions:**  
-        {', '.join(relevant_conditions)}
+            From the list below, choose the 5 most relevant maneuvers based on diagnostic value (e.g., LR+, LR-, context). For each, return:
+            - "name": the maneuver name (as written in the list)
+            - "description": a brief instruction on how to perform the maneuver and interpret a positive finding.
 
-        **Exam Table:**  
-        {table_str}
+            Return **only a valid JSON array** in the following format — no extra text or explanation:
+            [
+            {{"name": "maneuver name", "description": "how to perform and interpret the finding:}}, 
+            ...
+            ]
+            You must return exactly 5 items. 
+            
+            Here is the list:
+            {table_str}
         """
+
         try:
             response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are a teaching physician recommending the top exam maneuvers based on the provided information."},
+                    {"role": "system", "content": "You are a teaching physician who explains evidence-based physical exam maneuvers."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=3000,
-                temperature=0.5,
-                stream=True
+                max_tokens=1000,
+                temperature=0.5
             )
-            placeholder = st.empty()  # Placeholder for dynamic updates
-            result = ""
-            for chunk in response:
-                delta = chunk.choices[0].delta
-                content = getattr(delta, "content", "")
-                if content:
-                    result += content
-                    placeholder.markdown(result)  # Dynamically update the content
-            result += "\n\n---\n**Citation:** McGee S. Evidence-Based Physical Diagnosis. Elsevier - Health Science; 2021."
-            placeholder.markdown(result)  # Final update with the citation
-            return result
+            content = response.choices[0].message.content
+
+            # Parse GPT's JSON
+            st.text("Raw GPT response:")
+            st.code(content)
+            if content.strip().startswith("```"):
+                content = content.strip().strip("```json").strip("```").strip()
+            recommendations = json.loads(content)
+            # Clean content if it comes wrapped in Markdown-style triple backticks
+
+            return recommendations
+
         except Exception as e:
-            st.error(f"Error generating recommendations from GPT: {e}")
-            return "An error occurred while generating recommendations."
+            st.error(f"Error generating maneuver descriptions: {e}")
+            return []
 
     # Streamlit App
+    # Initialize session state variables
+    for key in ["user_findings", "relevant_conditions", "filtered_table"]:
+        if key not in st.session_state:
+            st.session_state[key] = None
+
     st.title("Enhanced Bedside Physical Exam")
 
     st.info(
@@ -186,25 +206,11 @@ else:
         """,
         icon="⚠️"
     )
-    # Sidebar for generating sample clinical notes
-    st.sidebar.title("Generate Sample Clinical Note")
-    condition_options = [
-        "Aortic stenosis", "Anemia", "Aortic regurgitation", 
-        "Shoulder pain", "Knee pain", 
-        "Hand pain", "Hip pain", "Pneumonia", "COPD", "Shortness of breath", "Chest pain"
-    ]
-    selected_conditions = st.sidebar.multiselect("Select condition(s):", condition_options)
 
-    # Spinner in the main area, but output in the sidebar
-    if st.sidebar.button("Generate Sample Note"):
-        with st.spinner("Generating sample clinical note..."):
-            sample_note = generate_sample_note(selected_conditions)
-        st.sidebar.markdown("### Sample Clinical Note")
-        st.sidebar.text_area("Generated Note:", value=sample_note, height=300)
-
-    # Main area for clinical notes and recommendations
+    # Clinical note input
     clinical_note = st.text_area("Enter the clinical note here:", placeholder="Type or paste your clinical note...")
 
+    # Recommend button
     if st.button("Recommend physical exam maneuvers"):
         if clinical_note.strip():
             with st.spinner("Retrieving relevant findings..."):
@@ -216,32 +222,124 @@ else:
                         "pneumonia", "copd"
                     ]
                     relevant_conditions = get_relevant_conditions(clinical_note, conditions_list)
-
                     if not relevant_conditions:
                         st.warning("No relevant conditions identified. Please refine your clinical note.")
                     else:
+                        st.session_state.relevant_conditions = [c.lower() for c in relevant_conditions]
                         st.success("Relevant conditions identified")
                 except Exception as e:
-                    st.error(f"An error occurred: {e}")
+                    st.error(f"Error: {e}")
 
             with st.spinner("Identifying specialized physical exam maneuvers..."):
                 try:
                     exam_table = load_exam_table()
                     exam_table['Condition'] = exam_table['Condition'].str.strip().str.lower()
-                    relevant_conditions = [condition.strip().lower() for condition in relevant_conditions]
-                    filtered_table = exam_table[exam_table['Condition'].isin(relevant_conditions)]
-                    recommendations_generated = True
+                    filtered_table = exam_table[exam_table['Condition'].isin(st.session_state.relevant_conditions)]
+                    st.session_state.filtered_table = filtered_table
                 except Exception as e:
-                    st.error(f"An error occurred: {e}")
-                    recommendations_generated = False
-
-            if recommendations_generated:
-                st.subheader("Recommended Physical Exam Maneuvers by Condition")
-                for condition in relevant_conditions:
-                    st.markdown(f"## {condition.title()}")  # Add a title for the condition
-                    condition_filtered_table = filtered_table[filtered_table['Condition'] == condition]
-
-                    # Stream recommendations dynamically
-                    generate_recommendations([condition], condition_filtered_table)
+                    st.error(f"Error loading maneuvers: {e}")
         else:
             st.warning("Please enter a clinical note.")
+
+    # Show recommendations if already available
+    if st.session_state.filtered_table is not None and st.session_state.relevant_conditions is not None:
+        st.subheader("Recommended Physical Exam Maneuvers by Condition")
+        user_findings = {}
+
+        for condition in st.session_state.relevant_conditions:
+            st.subheader(f"Top Exam Maneuvers for {condition.title()}")
+
+            condition_filtered = st.session_state.filtered_table[
+                st.session_state.filtered_table['Condition'] == condition
+            ]
+
+            recommendations = generate_recommendations([condition], condition_filtered)
+
+            for idx, item in enumerate(recommendations):
+                name = item["name"]
+                description = item["description"]
+
+                match = condition_filtered[condition_filtered["Physical exam maneuver"] == name]
+                if match.empty:
+                    continue
+                row = match.iloc[0]
+
+                with st.expander(f"{name}"):
+                    st.markdown(f"**Description:** {description}")
+                    st.markdown(f"""
+                    **Finding:** {row['Finding']}  
+                    **Sensitivity:** {row['Sensitivity (%)']}%  
+                    **Specificity:** {row['Specificity (%)']}%  
+                    **LR+:** {row['LR+']}  
+                    **LR-:** {row['LR-']}
+                    """)
+
+                    response = st.radio(
+                        "Was the finding present?",
+                        ["Not Done", "Present", "Absent"],
+                        key=f"{condition}_{idx}"
+                    )
+
+                    user_findings[f"{condition}_{name}"] = {
+                        "maneuver": name,
+                        "finding": row['Finding'],
+                        "description": description,
+                        "present": response,
+                        "LR+": float(row["LR+"]),
+                        "LR-": float(row["LR-"]),
+                        "Pretest_PR": float(row["Pretest_PR (%)"]) / 100
+                    }
+
+        # Store findings for post-test probability calculation
+        st.session_state.user_findings = user_findings
+
+        # Post-test probability calculator
+        if st.button("Calculate Post-Test Probability"):
+            # Store findings for post-test probability calculation
+            results = {}  # ✅ Initialize results dictionary here
+
+            for condition in st.session_state.relevant_conditions:
+                condition_findings = {
+                    k: v for k, v in st.session_state.user_findings.items()
+                    if k.startswith(condition)
+                }
+
+                if not condition_findings:
+                    continue
+
+                pretest_probs = [v["Pretest_PR"] for v in condition_findings.values()]
+                pretest_prob = sum(pretest_probs) / len(pretest_probs)
+                pretest_odds = pretest_prob / (1 - pretest_prob)
+
+                for v in condition_findings.values():
+                    if v["present"] == "Present":
+                        pretest_odds *= v["LR+"]
+                    elif v["present"] == "Absent":
+                        pretest_odds *= v["LR-"]
+                    # Not Done → skip
+
+                posttest_prob = pretest_odds / (1 + pretest_odds)
+
+                # ✅ Save results
+                results[condition] = {
+                    "pretest_prob": pretest_prob,
+                    "posttest_prob": posttest_prob
+                }
+
+    # Save to session state so it persists on rerun
+            st.session_state.posttest_results = results
+
+#Outside the button block — always render if results are available
+    if "posttest_results" in st.session_state:
+        for condition, result in st.session_state.posttest_results.items():
+            st.markdown(f"""
+            ### 🧮 Post-Test Probability for **{condition.title()}**  
+            - **Pre-test probability**: {result['pretest_prob'] * 100:.2f}%  
+            - **Post-test probability**: **{result['posttest_prob'] * 100:.2f}%**
+            """)
+
+               
+
+
+    else:
+        st.warning("Please enter a clinical note.")
