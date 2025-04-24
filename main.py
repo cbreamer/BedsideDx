@@ -136,14 +136,14 @@ else:
             table_str = "No relevant exam maneuvers found."
 
         prompt = f"""
-        Using the following information, identify and prioritize the most relevant specialized physical exam maneuvers for the patient. For each maneuver, include:
-- Step-by-step instructions
-- How to interpret positive/negative findings
-- Relevant statistics (sensitivity, specificity, LR+/-)
-- Clinical implications
-- At the end, provide any available media links in this format:
-  - [🎥 Video Link](https://...)
-  - [🖼️ Image Link](https://...).
+            Using the following information, identify and prioritize the most relevant specialized physical exam maneuvers for the patient. For each maneuver, include:
+            - Step-by-step instructions
+            - How to interpret positive/negative findings
+            - Relevant statistics (sensitivity, specificity, LR+/-)
+            - Clinical implications
+            - At the end, provide any available media links in this format:
+            - [🎥 Video Link](https://...)
+            - [🖼️ Image Link](https://...).
 
         **Conditions:**  
         {', '.join(relevant_conditions)}
@@ -212,7 +212,19 @@ else:
         st.sidebar.text_area("Generated Note:", value=sample_note, height=300)
 
     # Main area for clinical notes and recommendations
-    clinical_note = st.text_area("Enter the clinical note here:", placeholder="Type or paste your clinical note...")
+    if "clinical_note" not in st.session_state:
+        st.session_state["clinical_note"] = ""
+
+    clinical_note = st.text_area(
+        "Enter the clinical note here:",
+        value=st.session_state["clinical_note"],
+        placeholder="Type or paste your clinical note...",
+        key="clinical_note_input"
+)
+
+        # Keep it synced
+    st.session_state["clinical_note"] = clinical_note
+
 
     if st.button("Recommend physical exam maneuvers"):
         if clinical_note.strip():
@@ -225,6 +237,8 @@ else:
                         "pneumonia", "copd", "cushing's syndrome"
                     ]
                     relevant_conditions = get_relevant_conditions(clinical_note, conditions_list)
+                    st.session_state["relevant_conditions"] = relevant_conditions
+
 
                     if not relevant_conditions:
                         st.warning("No relevant conditions identified. Please refine your clinical note.")
@@ -239,19 +253,101 @@ else:
                     exam_table['Condition'] = exam_table['Condition'].str.strip().str.lower()
                     relevant_conditions = [condition.strip().lower() for condition in relevant_conditions]
                     filtered_table = exam_table[exam_table['Condition'].isin(relevant_conditions)]
+                    st.session_state["filtered_table"] = filtered_table
+                    st.session_state["recommendations_ready"] = True
                     print(filtered_table)
                     recommendations_generated = True
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
                     recommendations_generated = False
+                    
+    if st.session_state.get("recommendations_ready", False):
+        st.subheader("Recommended Physical Exam Maneuvers by Condition")
+        relevant_conditions = st.session_state.get("relevant_conditions", [])
+        filtered_table = st.session_state.get("filtered_table", pd.DataFrame())
+        for condition in relevant_conditions:
+            st.markdown(f"## {condition.title()}")  # Add a title for the condition
+            
+            #create data frame: condition_filtred_table that includes only the rows from the 
+            # filtered_table where Condition matches the column condition
+            condition_filtered_table = filtered_table[filtered_table['Condition'] == condition]
 
-            if recommendations_generated:
-                st.subheader("Recommended Physical Exam Maneuvers by Condition")
-                for condition in relevant_conditions:
-                    st.markdown(f"## {condition.title()}")  # Add a title for the condition
-                    condition_filtered_table = filtered_table[filtered_table['Condition'] == condition]
+            # Stream recommendations dynamically
+            generate_recommendations([condition], condition_filtered_table)
+            clinical_note = st.session_state.get("clinical_note", "")
+            relevant_conditions = st.session_state.get("relevant_conditions", [])
+            st.session_state["recommendations_ready"] = True
+            
+            # Create editable table below GPT output
+            editable_table = condition_filtered_table.copy()
+            # Display exam maneuvers in a table with dropdowns for selection
+            st.markdown("### \U0001F4CB Select Findings for Post-Test Probability")
+            selections = []
 
-                    # Stream recommendations dynamically
-                    generate_recommendations([condition], condition_filtered_table)
+            with st.form(key=f"post_test_form_{condition}"):
+                # --- HEADINGS ---
+                heading_cols = st.columns([2, 2, 3, 2.5, 2.5, 2.5, 2.5, 2.5])
+                heading_cols[0].markdown("**Physical Exam Maneuver**")
+                heading_cols[1].markdown("**Finding**")
+                heading_cols[2].markdown("**Result**")
+                heading_cols[3].markdown("**Sensitivity (%)**")
+                heading_cols[4].markdown("**Specificity (%)**")
+                heading_cols[5].markdown("**LR+**")
+                heading_cols[6].markdown("**LR-**")
+                heading_cols[7].markdown("**Pretest_PR (%)**")
+                
+                for idx, row in editable_table.iterrows():
+                    cols = st.columns([2, 2, 3, 2.5, 2.5, 2.5, 2.5, 2.5])
+                    cols[0].markdown(f"**{row['Physical exam maneuver']}**")
+                    cols[1].markdown(f"{row['Finding']}")
+                    result_key = f"{condition}_{idx}_result"
+                    default_value = st.session_state.get(result_key, "Not Done")
+                    selection = cols[2].selectbox(
+                        "",
+                        ["Not Done", "Present", "Absent"],
+                        index=["Not Done", "Present", "Absent"].index(default_value),
+                        key=result_key
+                    )
+                    cols[3].markdown(f":green[{row['Sensitivity (%)']}]")
+                    cols[4].markdown(f":green[{row['Specificity (%)']}]")
+                    cols[5].markdown(f":green[{row['LR+']}]")
+                    cols[6].markdown(f":green[{row['LR-']}]")
+                    cols[7].markdown(f":green[{row['Pretest_PR (%)']}]")
+
+                    selections.append({
+                        "Result": selection,
+                        "Sensitivity (%)": row["Sensitivity (%)"],
+                        "Specificity (%)": row["Specificity (%)"],
+                        "LR+": row["LR+"],
+                        "LR-": row["LR-"],
+                        "Pretest_PR (%)": row["Pretest_PR (%)"]
+                    })
+
+            # Add a submit button to calculate post-test probability
+                submitted = st.form_submit_button(f"Calculate Post-Test Probability for {condition.title()}")
+
+                if submitted:
+                    selected_df = pd.DataFrame([s for s in selections if s["Result"] != "Not Done"])
+
+                    if not selected_df.empty:
+                        pretest_probs = pd.to_numeric(selected_df["Pretest_PR (%)"], errors='coerce') / 100
+                        pretest_probs = pretest_probs.dropna()
+                        pretest_prob = pretest_probs.mean() if not pretest_probs.empty else 0.1
+                        pretest_odds = pretest_prob / (1 - pretest_prob)
+
+                        for _, row in selected_df.iterrows():
+                            lr = None
+                            if row["Result"] == "Present":
+                                lr = pd.to_numeric(row["LR+"], errors='coerce')
+                            elif row["Result"] == "Absent":
+                                lr = pd.to_numeric(row["LR-"], errors='coerce')
+                            if pd.notna(lr) and lr > 0:
+                                pretest_odds *= lr
+
+                        posttest_prob = pretest_odds / (1 + pretest_odds)
+                        st.success(f"\U0001F4C8 Post-Test Probability for **{condition.title()}**: **{posttest_prob*100:.1f}%**")
+                    else:
+                        st.warning("Please select at least one finding as Present or Absent.")
+                
         else:
             st.warning("Please enter a clinical note.")
