@@ -128,13 +128,22 @@ else:
                     f"- LR+: {row['LR+']}\n"
                     f"- LR-: {row['LR-']}\n"
                     f"- Context: {row['Context']}\n"
-                    f"- Condition: {row['Condition']}\n\n"
+                    f"- Condition: {row['Condition']}\n"
+                    f"- Video URL: {row.get('Video URL', '')}\n"
+                    f"- Image URL: {row.get('Image URL', '')}\n\n"
                 )
         else:
             table_str = "No relevant exam maneuvers found."
 
         prompt = f"""
-        Using the following information, identify and prioritize the most relevant specialized physical exam maneuvers for the patient. Provide step-by-step instructions, positive/negative findings, relevant statistics (sensitivity, specificity, LR+/-), and clinical implications.
+        Using the following information, identify and prioritize the most relevant specialized physical exam maneuvers for the patient. For each maneuver, include:
+- Step-by-step instructions
+- How to interpret positive/negative findings
+- Relevant statistics (sensitivity, specificity, LR+/-)
+- Clinical implications
+- At the end, provide any available media links in this format:
+  - [🎥 Video Link](https://...)
+  - [🖼️ Image Link](https://...).
 
         **Conditions:**  
         {', '.join(relevant_conditions)}
@@ -191,7 +200,7 @@ else:
     condition_options = [
         "Aortic stenosis", "Anemia", "Aortic regurgitation", 
         "Shoulder pain", "Knee pain", 
-        "Hand pain", "Hip pain", "Pneumonia", "COPD", "Shortness of breath", "Chest pain"
+        "Hand pain", "Hip pain", "Pneumonia", "COPD", "Shortness of breath", "Chest pain", "Cushing's syndrome"
     ]
     selected_conditions = st.sidebar.multiselect("Select condition(s):", condition_options)
 
@@ -213,7 +222,7 @@ else:
                         "aortic stenosis", "anemia", "aortic regurgitation", 
                         "musculoskeletal-shoulder", "musculoskeletal-knee", 
                         "musculoskeletal-hand", "musculoskeletal-hip", 
-                        "pneumonia", "copd"
+                        "pneumonia", "copd", "cushing's syndrome"
                     ]
                     relevant_conditions = get_relevant_conditions(clinical_note, conditions_list)
 
@@ -230,6 +239,7 @@ else:
                     exam_table['Condition'] = exam_table['Condition'].str.strip().str.lower()
                     relevant_conditions = [condition.strip().lower() for condition in relevant_conditions]
                     filtered_table = exam_table[exam_table['Condition'].isin(relevant_conditions)]
+                    print(filtered_table)
                     recommendations_generated = True
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
