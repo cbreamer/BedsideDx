@@ -60,7 +60,7 @@ else:
                     {"role": "system", "content": "You are a physician extracting relevant conditions from a clinical note."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=500,
+                max_tokens=5000,
                 temperature=0.5
             )
             message_content = response.choices[0].message.content
@@ -93,7 +93,7 @@ else:
                     {"role": "system", "content": "You are a physician creating sample clinical notes."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=800,
+                max_tokens=1000,
                 temperature=0.7,
                 stream=True
             )
@@ -145,6 +145,12 @@ else:
             - [🎥 Video Link](https://...)
             - [🖼️ Image Link](https://...).
 
+        At the end of your response, on a new line, return a comma-separated list of **only the recommended physical exam maneuvers and their findings** using this format:
+
+        **Physical Exam Recommendation List:** maneuver1: finding1, maneuver2: finding2, maneuver3: finding3
+
+        Please match the exact case and spelling of the maneuvers and findings from the table provided.
+
         **Conditions:**  
         {', '.join(relevant_conditions)}
 
@@ -158,21 +164,35 @@ else:
                     {"role": "system", "content": "You are a teaching physician recommending the top exam maneuvers based on the provided information."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=3000,
+                max_tokens=5000,
                 temperature=0.5,
                 stream=True
             )
             placeholder = st.empty()  # Placeholder for dynamic updates
-            result = ""
+            streamed_content= ""
             for chunk in response:
                 delta = chunk.choices[0].delta
                 content = getattr(delta, "content", "")
                 if content:
-                    result += content
-                    placeholder.markdown(result)  # Dynamically update the content
-            result += "\n\n---\n**Citation:** McGee S. Evidence-Based Physical Diagnosis. Elsevier - Health Science; 2021."
-            placeholder.markdown(result)  # Final update with the citation
-            return result
+                    streamed_content += content
+                    placeholder.markdown(streamed_content)  # Dynamically update the content
+            placeholder.markdown(streamed_content)  # Final update with the citation
+            if "Physical Exam Recommendation List:" in streamed_content:
+                _, list_line = streamed_content.rsplit("Physical Exam Recommendation List:", 1)
+                maneuver_pairs = [item.strip() for item in list_line.split(",") if item.strip()]
+             # Clean up maneuver and finding names (remove markdown formatting and extra spaces)
+                maneuver_finding_list = [
+                    (m.strip("* ").strip(), f.strip("* ").strip())
+                    for pair in maneuver_pairs if ":" in pair
+                    for m, f in [pair.split(":", 1)]
+                    ]
+            else:
+                maneuver_finding_list = []
+                
+            streamed_content += "\n\n---\n**Citation:** McGee S. Evidence-Based Physical Diagnosis. Elsevier - Health Science; 2021."
+            
+            return streamed_content, maneuver_finding_list
+
         except Exception as e:
             st.error(f"Error generating recommendations from GPT: {e}")
             return "An error occurred while generating recommendations."
@@ -180,12 +200,15 @@ else:
     # Streamlit App
     st.title("Enhanced Bedside Physical Exam")
 
-    st.info(
-        """
-        This is an educational app that will take a clinical note and recommend specialized physical exam tests to perform based on the clinical situation.  
-        **Do not include any PHI!**
+    st.info("""
+       This is an educational app that will:
+        - Take a clinical note and recommend specialized physical exam tests to perform based on the clinical situation.  
+        - Help you calculate the post-test probability based on the findings of your hypothesis-driven phyiscal exam! 
+        - It is currently a prototype with limited conditions. See the sidebar for available conditions and to draft a sample note.
+        - **Do not include any PHI!**
         """,
         icon="ℹ️"
+                
     )
 
     st.warning(
@@ -198,9 +221,7 @@ else:
     # Sidebar for generating sample clinical notes
     st.sidebar.title("Generate Sample Clinical Note")
     condition_options = [
-        "Aortic stenosis", "Anemia", "Aortic regurgitation", 
-        "Shoulder pain", "Knee pain", 
-        "Hand pain", "Hip pain", "Pneumonia", "COPD", "Shortness of breath", "Chest pain", "Cushing's syndrome"
+        "Aortic stenosis", "Anemia", "Aortic regurgitation", "Pneumonia", "COPD", "Shortness of breath", "Cushing's syndrome"
     ]
     selected_conditions = st.sidebar.multiselect("Select condition(s):", condition_options)
 
@@ -273,12 +294,24 @@ else:
             condition_filtered_table = filtered_table[filtered_table['Condition'] == condition]
 
             # Stream recommendations dynamically
-            generate_recommendations([condition], condition_filtered_table)
+            # Stream recommendations dynamically and capture maneuvers
+            markdown_output, maneuver_finding_list = generate_recommendations([condition], condition_filtered_table)
+            st.session_state[f"maneuver_finding_list_{condition}"] = maneuver_finding_list
+            print(maneuver_finding_list)
             clinical_note = st.session_state.get("clinical_note", "")
             relevant_conditions = st.session_state.get("relevant_conditions", [])
             st.session_state["recommendations_ready"] = True
             
-            # Create editable table below GPT output
+            # Filter condition_filtered_table based on the returned maneuver-finding pairs
+            if maneuver_finding_list:
+                condition_filtered_table = condition_filtered_table[
+                    condition_filtered_table.apply(
+                        lambda row: (row["Physical exam maneuver"], row["Finding"]) in maneuver_finding_list,
+                        axis=1
+                    )
+                ]
+
+            # Create editable_table from the filtered data
             editable_table = condition_filtered_table.copy()
             # Display exam maneuvers in a table with dropdowns for selection
             st.markdown("### \U0001F4CB Select Findings for Post-Test Probability")
@@ -286,7 +319,7 @@ else:
 
             with st.form(key=f"post_test_form_{condition}"):
                 # --- HEADINGS ---
-                heading_cols = st.columns([2, 2, 3, 2.5, 2.5, 2.5, 2.5, 2.5])
+                heading_cols = st.columns([2, 2, 3, 1, 1, 1, 1, 2])
                 heading_cols[0].markdown("**Physical Exam Maneuver**")
                 heading_cols[1].markdown("**Finding**")
                 heading_cols[2].markdown("**Result**")
@@ -297,7 +330,7 @@ else:
                 heading_cols[7].markdown("**Pretest_PR (%)**")
                 
                 for idx, row in editable_table.iterrows():
-                    cols = st.columns([2, 2, 3, 2.5, 2.5, 2.5, 2.5, 2.5])
+                    cols = st.columns([2, 2, 3, 1, 1, 1, 1, 2])
                     cols[0].markdown(f"**{row['Physical exam maneuver']}**")
                     cols[1].markdown(f"{row['Finding']}")
                     result_key = f"{condition}_{idx}_result"
@@ -349,5 +382,5 @@ else:
                     else:
                         st.warning("Please select at least one finding as Present or Absent.")
                 
-        else:
-            st.warning("Please enter a clinical note.")
+    elif not st.session_state.get("clinical_note", "").strip():
+        st.warning("Please enter a clinical note to generate recommendations.")
