@@ -37,13 +37,13 @@ skin inspection,Red or blue striae,15–52,61–93,1.7,NS,n/a,cushing's syndrome
 skin inspection,Acne,25–52,61–76,NS,NS,n/a,cushing's syndrome,Skin findings,0.0068,,
 extremity strength exam,Muscle weakness,28–63,69–98,3.8,NS,n/a,cushing's syndrome,Extremity findings,0.0068,,
 extremity examination,Edema,38–57,56–83,1.8,0.7,n/a,cushing's syndrome,Extremity findings,0.0068,,
-lung examination,Asymmetric chest expansion,5,100,44.1,NS,n/a,pneumonia,lung findings,20,,
-lung examination,Chest wall tenderness,5,96,NS,NS,n/a,pneumonia,lung findings,20,,
-percustion of lungs,Percussion dullness,4–26,82–99,3.6,NS,n/a,pneumonia,lung findings,20,,
-ausculation of lungs,Bronchial breath sounds,14–19,94–96,3.3,0.9,n/a,pneumonia,lung findings,2.48,https://physicaldiagnosispdx.com/pulmonology-m/3520-2/,
-egophony,Egophony,4–16,96–99,4.1,NS,n/a,pneumonia,lung findings,20,https://physicaldiagnosispdx.com/pulmonology-m/egophony/,
-ausculation of lungs,Crackles,19–67,36–97,2.8,0.8,n/a,pneumonia,lung findings,20,https://physicaldiagnosispdx.com/pulmonology-m/cracklesrales/,
-ausculation of lungs,Wheezing,4–36,50–96,0.8,NS,n/a,pneumonia,lung findings,20,https://physicaldiagnosispdx.com/pulmonology-m/wheezes/,
+lung examination,Asymmetric chest expansion,5,100,44.1,NS,n/a,pneumonia,lung findings,12,,
+lung examination,Chest wall tenderness,5,96,NS,NS,n/a,pneumonia,lung findings,12,,
+percustion of lungs,Percussion dullness,4–26,82–99,3.6,NS,n/a,pneumonia,lung findings,12,,
+ausculation of lungs,Bronchial breath sounds,14–19,94–96,3.3,0.9,n/a,pneumonia,lung findings,12,https://physicaldiagnosispdx.com/pulmonology-m/3520-2/,
+egophony,Egophony,4–16,96–99,4.1,NS,n/a,pneumonia,lung findings,15,https://physicaldiagnosispdx.com/pulmonology-m/egophony/,
+ausculation of lungs,Crackles,19–67,36–97,2.8,0.8,n/a,pneumonia,lung findings,12,https://physicaldiagnosispdx.com/pulmonology-m/cracklesrales/,
+ausculation of lungs,Wheezing,4–36,50–96,0.8,NS,n/a,pneumonia,lung findings,12,https://physicaldiagnosispdx.com/pulmonology-m/wheezes/,
 chest examination,Barrel chest,65,58,1.5,0.6,n/a,copd,n/a,6.5,,
 chest examination,AP/L chest diameter ratio ≥0.9,31,84,2,NS,n/a,copd,n/a,6.5,,
 inspection,Pursed-lip breathing,58,78,2.7,0.5,n/a,copd,n/a,6.5,,
@@ -61,4 +61,5 @@ forced expiratory time,Forced expiratory time ≥9 seconds,5–50,86–99,3.9,n/
 forced expiratory time,Forced expiratory time 3–9 seconds,42–94,,NS,n/a,n/a,copd,Forced expiratory time,6.5,,
 
 forced expiratory time,Forced expiratory time <3 seconds,1–10,26–89,0.2,n/a,n/a,copd,Forced expiratory time,6.5,,
+
 
