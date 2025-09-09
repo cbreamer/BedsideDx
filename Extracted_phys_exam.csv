@@ -41,7 +41,7 @@ lung examination,Asymmetric chest expansion,5,100,44.1,NS,n/a,pneumonia,lung fin
 lung examination,Chest wall tenderness,5,96,NS,NS,n/a,pneumonia,lung findings,12,,
 percustion of lungs,Percussion dullness,4–26,82–99,3.6,NS,n/a,pneumonia,lung findings,12,,
 ausculation of lungs,Bronchial breath sounds,14–19,94–96,3.3,0.9,n/a,pneumonia,lung findings,12,https://physicaldiagnosispdx.com/pulmonology-m/3520-2/,
-egophony,Egophony,4–16,96–99,4.1,NS,n/a,pneumonia,lung findings,15,https://physicaldiagnosispdx.com/pulmonology-m/egophony/,
+egophony,Egophony,4–16,96–99,4.1,NS,n/a,pneumonia,lung findings,12,https://physicaldiagnosispdx.com/pulmonology-m/egophony/,
 ausculation of lungs,Crackles,19–67,36–97,2.8,0.8,n/a,pneumonia,lung findings,12,https://physicaldiagnosispdx.com/pulmonology-m/cracklesrales/,
 ausculation of lungs,Wheezing,4–36,50–96,0.8,NS,n/a,pneumonia,lung findings,12,https://physicaldiagnosispdx.com/pulmonology-m/wheezes/,
 chest examination,Barrel chest,65,58,1.5,0.6,n/a,copd,n/a,6.5,,
@@ -61,5 +61,6 @@ forced expiratory time,Forced expiratory time ≥9 seconds,5–50,86–99,3.9,n/
 forced expiratory time,Forced expiratory time 3–9 seconds,42–94,,NS,n/a,n/a,copd,Forced expiratory time,6.5,,
 
 forced expiratory time,Forced expiratory time <3 seconds,1–10,26–89,0.2,n/a,n/a,copd,Forced expiratory time,6.5,,
+
 
 
