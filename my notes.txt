@@ -1,0 +1,19 @@
+List [] 
+dictioniary {} 
+can have list of dictionaries
+
+my_list = ["a", "b", "c"]
+my_dict = {
+    "role": "user", 
+    "content": "here's my question"
+}
+
+list of dictionaries
+messages = [
+    {"role": "system", "content": "You are a physician."},
+    {"role": "user", "content": prompt}
+]
+
+
+def generate_recommendations(relevant_conditions, filtered_table=None):
+- filtered table = none unless I pass it something

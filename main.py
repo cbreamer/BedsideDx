@@ -3,6 +3,28 @@ from openai import OpenAI
 import pandas as pd
 
 stored_password = st.secrets["passwords"]["app_password"]
+st.title("AI-PE: Enhanced Bedside Physical Exam")  # always visible
+
+# Session state
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+def check_password():
+    stored = st.secrets.get("passwords", {}).get("app_password")
+    if stored is None:
+        st.error("Missing [passwords].app_password in .streamlit/secrets.toml.")
+        return
+    if st.session_state.get("password_input", "") == stored:
+        st.session_state.authenticated = True
+    else:
+        st.error("Incorrect password. Please try again.")
+
+# Lock screen
+if not st.session_state.authenticated:
+    st.text_input("Enter Password (hint it's ai-pe):", type="password", key="password_input")
+    st.button("Unlock", on_click=check_password)
+    st.info("🔒 Enter the password to continue.")
+    st.stop()  # nothing below runs until authenticated
 
 
 # Initialize session state for password check
@@ -198,7 +220,6 @@ else:
             return "An error occurred while generating recommendations."
 
     # Streamlit App
-    st.title("Enhanced Bedside Physical Exam")
 
     st.info("""
        This is an educational app that will:
